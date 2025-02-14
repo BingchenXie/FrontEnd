@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merry Christmas</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #three-canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 确保 three.js 脚本正确加载 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+
+        // 创建场景
+        const scene = new THREE.Scene();
+
+        // 创建相机
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 10;
+        camera.position.y = -30;
+        camera.lookAt(0, 0, 15); // 让相机始终看向场景中心
+        camera.rotation.z = Math.PI; // 绕 y 轴旋转 45 度
+
+        // 创建渲染器
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // 点的集合和材质
+        const predefinedColors = [
+            new THREE.Color(0xFFD1DC),
+            new THREE.Color(0xDDA0DD),
+            new THREE.Color(0xFF69B4),
+            new THREE.Color(0xDDA0DD)
+        ];
+        const color_trunk = new THREE.Color(0xD2691E)
+        const pointMaterial = new THREE.PointsMaterial({ vertexColors: true, size: 0.05 });
+        const pointGeometry = new THREE.BufferGeometry();
+
+        const pointCount = 10000; // 点的数量
+        const positions = new Float32Array(pointCount * 3); // 每个点的 x, y, z 坐标
+        const colors = new Float32Array(pointCount * 3); // 每个点的 RGB 颜色
+        const angles = new Float32Array(pointCount); // 每个点的角度
+        const velocities = []; // 存储点的运动状态
+
+        const coneRadius = 10; // 圆锥体的底面半径
+        const coneHeight = 30; // 圆锥体的高度
+        const ratio_height = 0.78;
+        const ratio_width = 0.2;
+
+        // 初始化点
+        for (let i = 0; i < pointCount; i++) {
+            const random1 = Math.random();
+            const random2 = Math.random();
+            if ((random1 < random2 && random1 <= ratio_height) || (random1 > ratio_height && random2 < (1 - ratio_width))) {
+                i--;
+                continue;
+            }
+
+            const zStart = random1 * coneHeight;
+
+            positions[i * 3] = 0;
+            positions[i * 3 + 1] = 0;
+            positions[i * 3 + 2] = zStart;
+
+            const randomSpeed = 0.01;
+            random_progress = Math.random()
+            velocities.push({ progress: random_progress, speed: randomSpeed, zStart });
+
+            if (zStart / coneHeight > ratio_height) {
+                color = color_trunk;
+            } else {
+                color = predefinedColors[Math.floor(Math.random() * 4)];
+            }
+            colors[i * 3] = color.r;
+            colors[i * 3 + 1] = color.g;
+            colors[i * 3 + 2] = color.b;
+
+            angle = Math.random() * Math.PI * 2; // 随机角度
+            angles[i] = angle;
+        }
+
+        pointGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        pointGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const points = new THREE.Points(pointGeometry, pointMaterial);
+        scene.add(points);
+
+        // 更新点的状态
+        function updatePoints() {
+            for (let i = 0; i < velocities.length; i++) {
+                const velocity = velocities[i];
+
+                // 随机地重置点
+                if (velocity.progress <= 1) {
+                    if (Math.random() < 0.000000002) { // 减少随机重置概率
+                        velocity.progress = 0;
+                        // velocity.zStart = Math.random() * coneHeight; // 随机新的初始 z 坐标
+                        positions[i * 3] = 0;
+                        positions[i * 3 + 1] = 0;
+                        positions[i * 3 + 2] = positions[i * 3 + 2];
+                        angles[i] = Math.random() * Math.PI * 2;
+                        continue;
+                    }
+                    // 计算点从 zStart 到圆锥表面的运动
+                    const z = velocity.zStart; // z 逐渐靠近 coneHeight  + velocity.progress * (coneHeight - velocity.zStart)
+                    if (z / coneHeight > ratio_height) {
+                        radiusAtZ = coneRadius * ratio_width;
+                        x = radiusAtZ * Math.cos(angles[i]);
+                        y = radiusAtZ * Math.sin(angles[i]);
+                    } else {
+                        radiusAtZ = (z / coneHeight) * coneRadius;
+                        x = radiusAtZ * Math.cos(angles[i]) * velocity.progress;
+                        y = radiusAtZ * Math.sin(angles[i]) * velocity.progress;
+                    }
+
+                    positions[i * 3] = x;
+                    positions[i * 3 + 1] = y;
+                    positions[i * 3 + 2] = z;
+
+                    velocity.progress += velocity.speed; // 更新进度
+                } else {
+                    if (Math.random() < 0.01) { // 减少随机重置概率
+                        velocity.progress = 0;
+                        // velocity.zStart = Math.random() * coneHeight; // 随机新的初始 z 坐标
+                        positions[i * 3] = 0;
+                        positions[i * 3 + 1] = 0;
+                        positions[i * 3 + 2] = positions[i * 3 + 2];
+                        angles[i] = Math.random() * Math.PI * 2;
+                        continue;
+                    }
+                    // 如果点已经到达顶部，不做额外处理，等待随机重置
+                }
+
+            }
+            pointGeometry.attributes.position.needsUpdate = true;
+        }
+
+                // 创建树顶的星星
+// 添加树顶星星
+function createStarShape() {
+            const shape = new THREE.Shape();
+            const outerRadius = 2;
+            const innerRadius = 0.8;
+            const points = 5;
+
+            for (let i = 0; i < points * 2; i++) {
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const angle = (i / (points * 2)) * Math.PI * 2;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                if (i === 0) {
+                    shape.moveTo(x, y);
+                } else {
+                    shape.lineTo(x, y);
+                }
+            }
+            shape.closePath();
+            return shape;
+        }
+
+        const starShape = createStarShape();
+        const starGeometry = new THREE.ShapeGeometry(starShape);
+        const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+        const star = new THREE.Mesh(starGeometry, starMaterial);
+        star.rotation.x = Math.PI / 2;
+        star.position.set(0, 0, -1);
+        star.rotation.set(Math.PI / 2, 0, Math.PI*19 / 60);
+        scene.add(star);
+
+        // 动画函数
+        function animate() {
+            requestAnimationFrame(animate);
+            updatePoints(); // 更新点的位置和状态
+            renderer.render(scene, camera);
+        }
+
+        // 响应窗口大小调整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+
+</html>
